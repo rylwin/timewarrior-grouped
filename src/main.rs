@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use colored::*;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 mod timewarrior_datetime {
     use chrono::{DateTime, Local, NaiveDateTime, ParseResult};
@@ -29,14 +30,11 @@ fn date_time_to_date_string(datetime: DateTime<Local>) -> String {
 }
 
 #[derive(Debug)]
-struct Setting {
-    name: String,
-    value: String,
-}
+struct Value(String);
 
-impl Setting {
+impl Value {
     pub fn value_to_date_time(&self) -> DateTime<Local> {
-        timewarrior_datetime::parse(&self.value[..]).unwrap()
+        timewarrior_datetime::parse(&self.0[..]).unwrap()
     }
 }
 
@@ -62,7 +60,7 @@ impl Interval {
 
 #[derive(Debug)]
 struct Data {
-    settings: Vec<Setting>,
+    settings: HashMap<String, Value>,
     intervals: Vec<Interval>,
 }
 
@@ -96,7 +94,7 @@ impl Data {
     pub fn report_title(&self) -> String {
         let start = self.find_setting("temp.report.start");
         let end = self.find_setting("temp.report.end");
-        if start.is_some() && !start.unwrap().value.is_empty() && end.is_some() {
+        if start.is_some() && !start.unwrap().0.is_empty() && end.is_some() {
             format!(
                 "{} - {}",
                 date_time_to_date_string(start.unwrap().value_to_date_time()),
@@ -112,8 +110,8 @@ impl Data {
         }
     }
 
-    pub fn find_setting(&self, name: &str) -> Option<&Setting> {
-        self.settings.iter().find(|setting| setting.name == name)
+    pub fn find_setting(&self, name: &str) -> Option<&Value> {
+        self.settings.get(name)
     }
 
     pub fn grouped_report_rows(&self) -> Vec<GroupReportRow> {
@@ -136,17 +134,15 @@ impl Data {
 }
 
 fn get_data() -> Data {
-    let mut settings = vec![];
+    let mut settings = HashMap::new();
     let mut interval_lines = vec![];
     std::io::stdin().lines().for_each(|line| {
         let line = line.unwrap();
         let separator_index = line.find(": ");
         if let Some(separator_index) = separator_index {
-            let setting = Setting {
-                name: line[0..separator_index].into(),
-                value: line[(separator_index + 2)..].into(),
-            };
-            settings.push(setting);
+            let key = line[0..separator_index].into();
+            let value = Value(line[(separator_index + 2)..].into());
+            settings.insert(key, value);
         } else if line != "\n" {
             interval_lines.push(line);
         }
