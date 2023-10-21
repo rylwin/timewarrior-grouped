@@ -24,6 +24,10 @@ mod timewarrior_datetime {
     }
 }
 
+fn date_time_to_date_string(datetime: DateTime<Local>) -> String {
+    datetime.date_naive().format("%Y-%m-%d").to_string()
+}
+
 #[derive(Debug)]
 struct Setting {
     name: String,
@@ -31,17 +35,13 @@ struct Setting {
 }
 
 impl Setting {
-    pub fn value_to_date_string(&self) -> String {
-        match timewarrior_datetime::parse(&self.value[..]) {
-            Ok(datetime) => format!("{}", datetime.date_naive().format("%Y-%m-%d")),
-            Err(_) => "Invalid date".into(),
-        }
+    pub fn value_to_date_time(&self) -> DateTime<Local> {
+        timewarrior_datetime::parse(&self.value[..]).unwrap()
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct Interval {
-    id: usize,
     #[serde(with = "timewarrior_datetime")]
     start: DateTime<Local>,
     #[serde(with = "timewarrior_datetime")]
@@ -53,6 +53,10 @@ struct Interval {
 impl Interval {
     pub fn duration(&self) -> chrono::Duration {
         self.end.signed_duration_since(self.start)
+    }
+
+    pub fn title(&self) -> String {
+        self.tags.join(", ")
     }
 }
 
@@ -66,7 +70,6 @@ struct Data {
 struct GroupReportRow {
     title: String,
     duration: chrono::Duration,
-    annotations: Vec<String>,
 }
 
 fn pad_string(s: &str, len: usize) -> String {
@@ -92,8 +95,13 @@ impl Data {
         if start.is_some() && !start.unwrap().value.is_empty() && end.is_some() {
             format!(
                 "{} - {}",
-                start.unwrap().value_to_date_string(),
-                end.unwrap().value_to_date_string(),
+                date_time_to_date_string(start.unwrap().value_to_date_time()),
+                date_time_to_date_string(
+                    end.unwrap()
+                        .value_to_date_time()
+                        .checked_sub_signed(chrono::Duration::seconds(1))
+                        .unwrap()
+                ),
             )
         } else {
             String::from("")
@@ -107,7 +115,7 @@ impl Data {
     pub fn grouped_report_rows(&self) -> Vec<GroupReportRow> {
         let mut rows: Vec<GroupReportRow> = vec![];
         self.intervals.iter().for_each(|interval| {
-            let title = interval.tags.join(", ");
+            let title = interval.title();
             let row = rows.iter_mut().find(|row| row.title == title);
             match row {
                 Some(row) => {
@@ -116,7 +124,6 @@ impl Data {
                 None => rows.push(GroupReportRow {
                     title,
                     duration: interval.duration(),
-                    annotations: vec![],
                 }),
             };
         });
@@ -155,12 +162,15 @@ fn main() {
     println!();
     let mut rows = data.grouped_report_rows();
     let max_title = rows.iter().map(|row| row.title.len()).max().unwrap_or(0);
-    let total_seconds: i64 = rows.iter().map(|row| row.duration.num_seconds()).sum();
+    let mut total_duration = chrono::Duration::zero();
+    rows.iter().for_each(|row| {
+        total_duration = total_duration.checked_add(&row.duration).unwrap();
+    });
 
     println!(
         "{}",
         format!(
-            "{} {:>10} {:>10} {:>4}",
+            "{} {:>10} {:>10} {:>5}",
             pad_string("TAGS", max_title),
             "MINUTES",
             "HOURS",
@@ -171,15 +181,51 @@ fn main() {
     );
 
     rows.sort_by_key(|r| r.duration);
-    rows.iter().rev().for_each(|row| {
-        println!(
-            "{} {:>10} {:10.1} {:4.0}",
+    let mut it = rows.iter().rev().peekable();
+    while let Some(row) = it.next() {
+        let mut string: ColoredString = format!(
+            "{} {:>10} {:10.1} {:5.0}",
             row.padded_title(max_title),
             row.duration.num_minutes(),
-            row.duration.num_minutes() as f32 / 60.0,
-            row.duration.num_seconds() as f64 / (total_seconds as f64) * 100.0,
-        );
-    });
-    // dbg!(&data);
-    // dbg!(&data.find_setting("temp.report.start"));
+            row.duration.num_minutes() as f64 / 60.0,
+            row.duration.num_minutes() as f64 / (total_duration.num_minutes() as f64) * 100.0,
+        )
+        .normal();
+        if it.peek().is_none() {
+            string = string.underline();
+        }
+        println!("{}", string);
+    }
+    println!(
+        "{}",
+        format!(
+            "{} {:>10} {:10.1}",
+            pad_string("TOTAL", max_title),
+            total_duration.num_minutes(),
+            total_duration.num_minutes() as f64 / 60.0,
+        )
+        .bold()
+    );
+
+    let annotated_intervals: Vec<&Interval> = data
+        .intervals
+        .iter()
+        .filter(|interval| interval.annotation.is_some())
+        .collect();
+    if !annotated_intervals.is_empty() {
+        println!();
+        println!("{}", "annotations".dimmed());
+        annotated_intervals.iter().for_each(|interval| {
+            let string = format!(
+                "{} {:>10} {:10.1} {:5.0} {}",
+                pad_string(&interval.title(), max_title),
+                interval.duration().num_minutes(),
+                interval.duration().num_minutes() as f64 / 60.0,
+                interval.duration().num_minutes() as f64 / (total_duration.num_minutes() as f64)
+                    * 100.0,
+                interval.annotation.as_ref().unwrap(),
+            );
+            println!("{}", string.dimmed());
+        });
+    }
 }
