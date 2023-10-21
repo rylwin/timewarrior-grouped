@@ -158,6 +158,8 @@ fn get_data() -> Data {
     }
 }
 
+const MINIMUM_TAGS_WIDTH: usize = 12;
+
 fn main() {
     colored::control::set_override(true);
 
@@ -165,7 +167,12 @@ fn main() {
     println!("{}", data.report_title().dimmed());
     println!();
     let mut rows = data.grouped_report_rows();
-    let max_title = rows.iter().map(|row| row.title.len()).max().unwrap_or(0);
+    let mut lengths = rows
+        .iter()
+        .map(|row| row.title.len())
+        .collect::<Vec<usize>>();
+    lengths.extend([MINIMUM_TAGS_WIDTH].iter());
+    let max_title = lengths.into_iter().max().unwrap_or(0);
     let mut total_duration = chrono::Duration::zero();
     rows.iter().for_each(|row| {
         total_duration = total_duration.checked_add(&row.duration).unwrap();
