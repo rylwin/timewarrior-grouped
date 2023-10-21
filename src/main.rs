@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use colored::*;
 use serde::Deserialize;
 
 mod timewarrior_datetime {
@@ -68,6 +69,22 @@ struct GroupReportRow {
     annotations: Vec<String>,
 }
 
+fn pad_string(s: &str, len: usize) -> String {
+    let padding = len - s.len();
+    let mut padded_string = String::with_capacity(len);
+    for _ in 0..padding {
+        padded_string.push(' ');
+    }
+    padded_string.push_str(s);
+    padded_string
+}
+
+impl GroupReportRow {
+    pub fn padded_title(&self, len: usize) -> String {
+        pad_string(&self.title, len)
+    }
+}
+
 impl Data {
     pub fn report_title(&self) -> String {
         let start = self.find_setting("temp.report.start");
@@ -131,16 +148,36 @@ fn get_data() -> Data {
 }
 
 fn main() {
+    colored::control::set_override(true);
+
     let data = get_data();
-    println!("{}", data.report_title());
+    println!("{}", data.report_title().dimmed());
+    println!();
     let mut rows = data.grouped_report_rows();
+    let max_title = rows.iter().map(|row| row.title.len()).max().unwrap_or(0);
+    let total_seconds: i64 = rows.iter().map(|row| row.duration.num_seconds()).sum();
+
+    println!(
+        "{}",
+        format!(
+            "{} {:>10} {:>10} {:>4}",
+            pad_string("TAGS", max_title),
+            "MINUTES",
+            "HOURS",
+            "%"
+        )
+        .bold()
+        .underline()
+    );
+
     rows.sort_by_key(|r| r.duration);
     rows.iter().rev().for_each(|row| {
         println!(
-            "{:>20} {:10} {:10}",
-            row.title,
+            "{} {:>10} {:10.1} {:4.0}",
+            row.padded_title(max_title),
             row.duration.num_minutes(),
-            row.duration.num_minutes() as f32 / 60.0
+            row.duration.num_minutes() as f32 / 60.0,
+            row.duration.num_seconds() as f64 / (total_seconds as f64) * 100.0,
         );
     });
     // dbg!(&data);
