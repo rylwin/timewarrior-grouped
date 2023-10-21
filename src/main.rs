@@ -29,6 +29,20 @@ fn date_time_to_date_string(datetime: DateTime<Local>) -> String {
     datetime.date_naive().format("%Y-%m-%d").to_string()
 }
 
+fn pad_string(s: &str, len: usize) -> String {
+    match len.checked_sub(s.len()) {
+        Some(padding) => {
+            let mut padded_string = String::with_capacity(len);
+            for _ in 0..padding {
+                padded_string.push(' ');
+            }
+            padded_string.push_str(s);
+            padded_string
+        }
+        None => s.to_string(),
+    }
+}
+
 #[derive(Debug)]
 struct Value(String);
 
@@ -59,35 +73,21 @@ impl Interval {
 }
 
 #[derive(Debug)]
-struct Data {
-    settings: HashMap<String, Value>,
-    intervals: Vec<Interval>,
-}
-
-#[derive(Debug)]
 struct GroupReportRow {
     title: String,
     duration: chrono::Duration,
-}
-
-fn pad_string(s: &str, len: usize) -> String {
-    match len.checked_sub(s.len()) {
-        Some(padding) => {
-            let mut padded_string = String::with_capacity(len);
-            for _ in 0..padding {
-                padded_string.push(' ');
-            }
-            padded_string.push_str(s);
-            padded_string
-        }
-        None => s.to_string(),
-    }
 }
 
 impl GroupReportRow {
     pub fn padded_title(&self, len: usize) -> String {
         pad_string(&self.title, len)
     }
+}
+
+#[derive(Debug)]
+struct Data {
+    settings: HashMap<String, Value>,
+    intervals: Vec<Interval>,
 }
 
 impl Data {
