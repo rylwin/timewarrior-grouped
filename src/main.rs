@@ -73,13 +73,17 @@ struct GroupReportRow {
 }
 
 fn pad_string(s: &str, len: usize) -> String {
-    let padding = len - s.len();
-    let mut padded_string = String::with_capacity(len);
-    for _ in 0..padding {
-        padded_string.push(' ');
+    match len.checked_sub(s.len()) {
+        Some(padding) => {
+            let mut padded_string = String::with_capacity(len);
+            for _ in 0..padding {
+                padded_string.push(' ');
+            }
+            padded_string.push_str(s);
+            padded_string
+        }
+        None => s.to_string(),
     }
-    padded_string.push_str(s);
-    padded_string
 }
 
 impl GroupReportRow {
