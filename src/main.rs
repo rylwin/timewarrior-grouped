@@ -187,7 +187,7 @@ fn main() {
             "{} {:>10} {:10.1} {:5.0}",
             row.padded_title(max_title),
             row.duration.num_minutes(),
-            row.duration.num_minutes() as f64 / 60.0,
+            row.duration.num_seconds() as f64 / 3600.0,
             row.duration.num_minutes() as f64 / (total_duration.num_minutes() as f64) * 100.0,
         )
         .normal();
@@ -202,7 +202,7 @@ fn main() {
             "{} {:>10} {:10.1}",
             pad_string("TOTAL", max_title),
             total_duration.num_minutes(),
-            total_duration.num_minutes() as f64 / 60.0,
+            total_duration.num_seconds() as f64 / 3600.0,
         )
         .bold()
     );
@@ -220,7 +220,7 @@ fn main() {
                 "{} {:>10} {:10.1} {:5.0} {}",
                 pad_string(&interval.title(), max_title),
                 interval.duration().num_minutes(),
-                interval.duration().num_minutes() as f64 / 60.0,
+                interval.duration().num_seconds() as f64 / 3600.0,
                 interval.duration().num_minutes() as f64 / (total_duration.num_minutes() as f64)
                     * 100.0,
                 interval.annotation.as_ref().unwrap(),
