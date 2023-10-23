@@ -25,6 +25,28 @@ mod timewarrior_datetime {
     }
 }
 
+mod timewarrior_datetime_option {
+    use chrono::{DateTime, Local, NaiveDateTime, ParseResult};
+    use serde::{self, Deserialize, Deserializer};
+
+    const FORMAT: &str = "%Y%m%dT%H%M%SZ";
+
+    pub fn parse(s: &str) -> ParseResult<Option<DateTime<Local>>> {
+        let dt = NaiveDateTime::parse_from_str(s, FORMAT)?;
+        Ok(Some(DateTime::<Local>::from_naive_utc_and_offset(
+            dt,
+            *Local::now().offset(),
+        )))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Local>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        parse(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
 fn date_time_to_date_string(datetime: DateTime<Local>) -> String {
     datetime.date_naive().format("%Y-%m-%d").to_string()
 }
@@ -56,15 +78,18 @@ impl Value {
 struct Interval {
     #[serde(with = "timewarrior_datetime")]
     start: DateTime<Local>,
-    #[serde(with = "timewarrior_datetime")]
-    end: DateTime<Local>,
+    #[serde(default)]
+    #[serde(with = "timewarrior_datetime_option")]
+    end: Option<DateTime<Local>>,
     tags: Vec<String>,
     annotation: Option<String>,
 }
 
 impl Interval {
     pub fn duration(&self) -> chrono::Duration {
-        self.end.signed_duration_since(self.start)
+        self.end
+            .unwrap_or(Local::now())
+            .signed_duration_since(self.start)
     }
 
     pub fn title(&self) -> String {
