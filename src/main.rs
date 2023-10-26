@@ -239,6 +239,17 @@ fn main() {
         .bold()
     );
 
+    println!();
+    println!(
+        "{}",
+        format!(
+            "{} {:>10}",
+            pad_string("intervals", max_title),
+            data.intervals.len()
+        )
+        .dimmed()
+    );
+
     let annotated_intervals: Vec<&Interval> = data
         .intervals
         .iter()
@@ -246,7 +257,7 @@ fn main() {
         .collect();
     if !annotated_intervals.is_empty() {
         println!();
-        println!("{}", "annotations".dimmed());
+        println!("{}", pad_string("annotations", max_title).dimmed());
         annotated_intervals.iter().for_each(|interval| {
             let string = format!(
                 "{} {:>10} {:10.1} {:5.0} {}",
