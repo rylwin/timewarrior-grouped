@@ -223,6 +223,9 @@ fn main() {
             row.duration.num_minutes() as f64 / (total_duration.num_minutes() as f64) * 100.0,
         )
         .normal();
+        if row.title.eq("code") {
+            string = string.color(Color::Blue);
+        }
         if it.peek().is_none() {
             string = string.underline();
         }
